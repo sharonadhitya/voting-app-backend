@@ -23,6 +23,13 @@ export async function getSinglePoll(app: FastifyInstance) {
               votes: {
                 select: {
                   id: true,
+                  userId: true,
+                  user: {
+                    select: {
+                      id: true,
+                      name: true,
+                    }
+                  }
                 }
               }
             }
@@ -30,7 +37,7 @@ export async function getSinglePoll(app: FastifyInstance) {
           user: {
             select: {
               id: true,
-              name: true
+              name: true,
             }
           }
         }
@@ -40,18 +47,22 @@ export async function getSinglePoll(app: FastifyInstance) {
         return reply.status(404).send({ message: "Poll not found" });
       }
 
-      // Transform data to include vote counts
+      // Transform data to include vote counts and voter information
       const formattedPoll = {
         ...poll,
         options: poll.options.map(option => ({
           id: option.id,
           title: option.title,
-          score: option.votes.length
+          score: option.votes.length,
+          voters: option.votes.map(vote => 
+            vote.user ? { id: vote.user.id, name: vote.user.name } : { id: null, name: 'Anonymous' }
+          )
         }))
       };
 
       return reply.send({ poll: formattedPoll });
     } catch (error) {
+      console.error("Error getting poll:", error);
       return reply.status(400).send({ message: "Invalid poll ID" });
     }
   });

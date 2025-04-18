@@ -35,6 +35,12 @@ export async function getAllPolls(app: FastifyInstance) {
       },
       include: {
         options: true,
+        user: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       },
     });
     

@@ -17,7 +17,6 @@ model Poll {
   updatedAt DateTime @updatedAt
   options   PollOption[]
   votes     Vote[]
-  // Add these new fields:
   userId    String?
   user      User?     @relation(fields: [userId], references: [id])
 }
@@ -26,21 +25,23 @@ model PollOption {
   id     String @id @default(uuid())
   title  String
   pollId String
-
-  poll  Poll   @relation(fields: [pollId], references: [id])
-  votes Vote[]
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  votes  Vote[]
 }
 
 model Vote {
-  id           Int      @id @default(autoincrement())
-  sessionId    String
+  id           Int       @id @default(autoincrement())
+  userId       String?   // Allow null for anonymous votes
+  sessionId    String?   // Keep for backward compatibility
   pollId       String
   pollOptionId String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
+  pollOption   PollOption @relation(fields: [pollOptionId], references: [id], onDelete: Cascade)
+  poll         Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user         User?      @relation(fields: [userId], references: [id])
 
-  pollOption PollOption @relation(fields: [pollOptionId], references: [id])
-  poll       Poll       @relation(fields: [pollId], references: [id])
-
+  // Update constraints to handle both user and session-based votes
+  @@unique([userId, pollId])
   @@unique([sessionId, pollId])
 }
 
@@ -51,6 +52,6 @@ model User {
   name          String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  polls         Poll[]   // This creates a relation with polls
+  polls         Poll[]
+  votes         Vote[]   // Add this relation
 }
-
