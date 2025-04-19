@@ -55,3 +55,4 @@ model User {
   polls         Poll[]
   votes         Vote[]   // Add this relation
 }
+
