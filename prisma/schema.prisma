@@ -54,5 +54,15 @@ model User {
   updatedAt     DateTime @updatedAt
   polls         Poll[]
   votes         Vote[]   // Add this relation
+
+  Notification Notification[]
 }
 
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}

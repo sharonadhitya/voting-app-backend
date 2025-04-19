@@ -42,6 +42,7 @@ export async function updatePoll(app: FastifyInstance) {
       include: { options: true },
     });
 
+    // No notification needed for self-update
     return reply.status(200).send({ pollId: updatedPoll.id });
   });
 }

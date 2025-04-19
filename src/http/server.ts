@@ -11,15 +11,17 @@ import { pollResults } from "./websocket/poll-results";
 import { authRoutes } from "./routes/auth";
 import { deletePoll } from "./routes/delete-poll";
 import { updatePoll } from "./routes/update-poll";
+import { notificationRoutes } from "./routes/notifications";
 
 const { PORT, COOKIE_SECRET } = config;
 const app = fastify();
 app.register(cors, {
   origin: true,
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Explicitly allow these methods
-  allowedHeaders: ['Authorization', 'Content-Type'], // Allow necessary headers
-});app.register(cookie, { secret: COOKIE_SECRET, hook: "onRequest" });
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+});
+app.register(cookie, { secret: COOKIE_SECRET, hook: "onRequest" });
 app.register(websocket);
 app.register(authRoutes);
 app.register(createPoll);
@@ -29,6 +31,7 @@ app.register(voteOnPoll);
 app.register(pollResults);
 app.register(deletePoll);
 app.register(updatePoll);
+app.register(notificationRoutes);
 app.listen({ port: PORT, host: '0.0.0.0' }).then(() => {
   console.log(`HTTP server running on port ${PORT}!`);
 }).catch((err) => {
