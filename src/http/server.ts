@@ -1,39 +1,53 @@
+// server.ts
 import cookie from "@fastify/cookie";
-import websocket from "@fastify/websocket";
 import fastify from "fastify";
 import cors from "@fastify/cors";
+import { Server } from "socket.io";
 import { config } from "../config/index.schema";
 import { createPoll } from "./routes/create-poll";
 import { getAllPolls } from "./routes/get-poll";
 import { getSinglePoll } from "./routes/get-single-poll";
 import { voteOnPoll } from "./routes/vote-on-poll";
-import { pollResults } from "./websocket/poll-results";
 import { authRoutes } from "./routes/auth";
 import { deletePoll } from "./routes/delete-poll";
 import { updatePoll } from "./routes/update-poll";
 import { notificationRoutes } from "./routes/notifications";
+import { setupSocket } from "./websocket/poll-results";
 
 const { PORT, COOKIE_SECRET } = config;
-const app = fastify();
+const app = fastify({ logger: true }); // Enable Fastify logging for debugging
+
 app.register(cors, {
-  origin: true,
+  origin: "http://localhost:3000",
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Authorization', 'Content-Type'],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type"],
 });
+
 app.register(cookie, { secret: COOKIE_SECRET, hook: "onRequest" });
-app.register(websocket);
+
 app.register(authRoutes);
 app.register(createPoll);
 app.register(getAllPolls);
 app.register(getSinglePoll);
 app.register(voteOnPoll);
-app.register(pollResults);
 app.register(deletePoll);
 app.register(updatePoll);
 app.register(notificationRoutes);
-app.listen({ port: PORT, host: '0.0.0.0' }).then(() => {
-  console.log(`HTTP server running on port ${PORT}!`);
+
+app.listen({ port: PORT, host: "0.0.0.0" }).then((address) => {
+  console.log(`HTTP server running on ${address}`);
+
+  const io = new Server(app.server, {
+    cors: {
+      origin: "http://localhost:3000",
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    transports: ["websocket"], // Force WebSocket transport
+  });
+
+  setupSocket(io);
 }).catch((err) => {
   console.error("Failed to start server:", err);
   process.exit(1);

@@ -1,46 +1,38 @@
-type Message = { 
-  pollOptionId: string; 
-  votes: number;
-  userId?: string;
-  userName?: string;
+// src/utils/voting-pub-sub.ts
+import { Redis } from "ioredis";
+
+export const voting = {
+  publish: (pollId: string, message: any) => {
+    console.log(`Publishing to Redis channel ${pollId}:`, message);
+    const redis = new Redis({
+      host: "localhost",
+      port: 6379,
+    });
+    redis.publish(pollId, JSON.stringify(message));
+    redis.quit();
+  },
+  subscribe: (pollId: string, callback: (message: any) => void) => {
+    const redis = new Redis({
+      host: "localhost",
+      port: 6379,
+    });
+    redis.subscribe(pollId, (err, count) => {
+      if (err) {
+        console.error(`Failed to subscribe to ${pollId}:`, err);
+      } else {
+        console.log(`Subscribed to Redis channel ${pollId}, count: ${count}`);
+      }
+    });
+    redis.on("message", (channel, message) => {
+      if (channel === pollId) {
+        console.log(`Received message from Redis channel ${pollId}:`, message);
+        callback(JSON.parse(message));
+      }
+    });
+    return () => {
+      redis.unsubscribe(pollId);
+      redis.quit();
+      console.log(`Unsubscribed from Redis channel ${pollId}`);
+    };
+  },
 };
-
-type Subscriber = (message: Message) => void;
-
-class VotingPubSub {
-  private channels: Record<string, Subscriber[]> = {};
-
-  subscribe(pollId: string, subscriber: Subscriber) {
-    if (!this.channels[pollId]) {
-      this.channels[pollId] = [];
-    }
-    this.channels[pollId].push(subscriber);
-  }
-
-  unsubscribe(pollId: string, subscriber: Subscriber) {
-    if (!this.channels[pollId]) {
-      return;
-    }
-    
-    this.channels[pollId] = this.channels[pollId].filter(
-      existingSubscriber => existingSubscriber !== subscriber
-    );
-    
-    // Clean up empty channels
-    if (this.channels[pollId].length === 0) {
-      delete this.channels[pollId];
-    }
-  }
-
-  publish(pollId: string, message: Message) {
-    if (!this.channels[pollId]) {
-      return;
-    }
-    
-    for (const subscriber of this.channels[pollId]) {
-      subscriber(message);
-    }
-  }
-}
-
-export const voting = new VotingPubSub();
