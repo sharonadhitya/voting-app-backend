@@ -1,3 +1,4 @@
+// src/http/routes/create-poll.ts
 import { FastifyInstance } from "fastify";
 import { array, object, string } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -15,19 +16,27 @@ export async function createPoll(app: FastifyInstance) {
         userId,
         options: { createMany: { data: options.map((option) => ({ title: option })) } },
       },
+      include: {
+        options: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
-    // Notify all users about the new poll, excluding the creator
     const users = await prisma.user.findMany({ select: { id: true } });
     const creator = await prisma.user.findUnique({ where: { id: userId }, select: { name: true } });
     const creatorName = creator?.name || "Unknown User";
 
     const notifications = await Promise.all(
       users
-        .filter(user => user.id !== userId) // Exclude creator
+        .filter((user) => user.id !== userId)
         .map(async (user) => ({
           userId: user.id,
-          message: `A new poll "${title || 'Untitled Poll'}" has been created by ${creatorName}`,
+          message: `A new poll "${title || "Untitled Poll"}" has been created by ${creatorName}`,
         }))
     );
 
@@ -36,6 +45,15 @@ export async function createPoll(app: FastifyInstance) {
         data: notifications,
       });
     }
+
+    // Emit new poll event
+    app.io.emit("newPoll", {
+      id: poll.id,
+      title: poll.title,
+      createdAt: poll.createdAt,
+      options: poll.options,
+      user: poll.user,
+    });
 
     return reply.status(201).send({ pollId: poll.id });
   });
