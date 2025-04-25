@@ -23,23 +23,39 @@ export async function deletePoll(app: FastifyInstance) {
     // Notify users who voted on this poll (excluding the deleter)
     const voters = poll.options
       .flatMap(option => option.votes)
-      .map(vote => vote.user) // This can be null
-      .filter((user): user is NonNullable<typeof user> => user !== null && user.id !== undefined) // Filter out null and undefined
-      .filter(user => user.id !== userId) // Exclude the deleter
+      .map(vote => vote.user)
+      .filter((user): user is NonNullable<typeof user> => user !== null && user.id !== undefined)
+      .filter(user => user.id !== userId)
       .map(user => user.id);
 
     if (voters.length > 0) {
-      await prisma.notification.createMany({
+      const notifications = await prisma.notification.createMany({
         data: voters.map(voterId => ({
           userId: voterId,
           message: `The poll "${poll.title || 'Untitled Poll'}" you voted on has been deleted by its owner`,
         })),
       });
+
+      // Emit notifications to each voter
+      voters.forEach((voterId) => {
+        const notificationData = {
+          id: `${voterId}-${Date.now()}`, // Temporary ID for Socket.IO
+          userId: voterId,
+          message: `The poll "${poll.title || 'Untitled Poll'}" you voted on has been deleted by its owner`,
+          read: false,
+          createdAt: new Date(),
+        };
+        app.io.to(voterId).emit("newNotification", notificationData);
+      });
     }
 
+    // Delete the poll
     await prisma.poll.delete({
       where: { id: pollId },
     });
+
+    // Emit deletePoll event to all clients
+    app.io.emit("deletePoll", { pollId });
 
     return reply.status(200).send({ message: "Poll deleted successfully" });
   });

@@ -1,4 +1,3 @@
-// src/http/routes/create-poll.ts
 import { FastifyInstance } from "fastify";
 import { array, object, string } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -41,8 +40,20 @@ export async function createPoll(app: FastifyInstance) {
     );
 
     if (notifications.length > 0) {
-      await prisma.notification.createMany({
+      const createdNotifications = await prisma.notification.createMany({
         data: notifications,
+      });
+
+      // Emit notifications to each user
+      notifications.forEach((notification) => {
+        const notificationData = {
+          id: `${notification.userId}-${Date.now()}`, // Temporary ID for Socket.IO
+          userId: notification.userId,
+          message: notification.message,
+          read: false,
+          createdAt: new Date(),
+        };
+        app.io.to(notification.userId).emit("newNotification", notificationData);
       });
     }
 

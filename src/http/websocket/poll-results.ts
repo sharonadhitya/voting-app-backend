@@ -8,18 +8,15 @@ import { verifyToken } from "../../lib/jwt";
 export async function setupSocket(io: Server) {
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-    console.log("Socket auth token:", token);
     if (!token) {
-      console.log("Socket authentication failed: No token");
       return next(new Error("Authentication required"));
     }
     const payload = verifyToken(token);
-    console.log("Socket token payload:", payload);
     if (!payload) {
-      console.log("Socket authentication failed: Invalid token");
       return next(new Error("Invalid or expired token"));
     }
     (socket as any).userId = payload.userId;
+    socket.join(payload.userId); // Join a room for the user
     next();
   });
 

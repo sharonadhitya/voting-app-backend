@@ -1,3 +1,4 @@
+// notification.ts
 import { FastifyInstance } from "fastify";
 import { authenticate } from "../middleware/auth";
 import { prisma } from "../../lib/prisma";
@@ -21,5 +22,16 @@ export async function notificationRoutes(app: FastifyInstance) {
     }
     await prisma.notification.update({ where: { id }, data: { read: true } });
     return reply.status(200).send({ message: "Marked as read" });
+  });
+
+  // New route or function to emit notifications
+  app.post("/notifications/emit", { preHandler: authenticate }, async (request, reply) => {
+    const { userId, message } = request.body as { userId: string; message: string };
+    const notification = await prisma.notification.create({
+      data: { userId, message },
+    });
+    // Emit to the specific user
+    app.io.to(userId).emit("newNotification", notification);
+    return reply.status(201).send({ notification });
   });
 }

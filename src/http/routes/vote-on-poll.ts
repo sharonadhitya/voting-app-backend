@@ -1,4 +1,3 @@
-// src/http/routes/vote-on-poll.ts
 import { FastifyInstance } from "fastify";
 import { object, string } from "zod";
 import { prisma } from "../../lib/prisma";
@@ -11,7 +10,7 @@ export async function voteOnPoll(app: FastifyInstance) {
     "/polls/:pollId/votes",
     { preHandler: authenticate },
     async (request, reply) => {
-      console.log("Vote request received:", { params: request.params, body: request.body }); // Debug log
+      console.log("Vote request received:", { params: request.params, body: request.body });
       const voteOnPollBody = object({ pollOptionId: string().trim().uuid() });
       const voteOnPollParams = object({ pollId: string().trim().uuid() });
       
@@ -78,13 +77,21 @@ export async function voteOnPoll(app: FastifyInstance) {
           });
           const voterName = voter?.name || "Anonymous";
           const pollTitle = poll.title || "Untitled Poll";
-          await prisma.notification.create({
+          const notification = await prisma.notification.create({
             data: {
               userId: poll.userId,
               message: `${voterName} voted on your poll "${pollTitle}"`,
             },
           });
-          console.log(`Notification created for user ${poll.userId}`);
+          // Emit notification to poll owner
+          app.io.to(poll.userId).emit("newNotification", {
+            id: notification.id,
+            userId: poll.userId,
+            message: notification.message,
+            read: false,
+            createdAt: notification.createdAt,
+          });
+          console.log(`Notification created and emitted for user ${poll.userId}`);
         }
 
         console.log("Vote processed successfully");
